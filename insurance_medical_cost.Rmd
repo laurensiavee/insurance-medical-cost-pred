@@ -1,0 +1,338 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  knitr::opts_chunk$set(fig.path = "path/to/figures/")
+editor_options: 
+  chunk_output_type: console
+---
+
+# MEDICAL COST PREDICTION: INSURANCE FORECAST
+## Medical Cost Analysis and Prediction Using Regression Model
+
+## About the project
+### By analysis, we can predict the potential or health risk of someone. Insurance companies should do these analysis to predict how much insurance to be insured to their customer. Using Machine Learning Regression Model, we can create accurate and simple prediction.
+
+### Objective:
+Explore and Analyze data and answer question such as:
+- How's the customer distributed?
+- Does age and sex effected medical cost?
+- Is health background such as bmi and smoker effected medical cost?
+- Do number of children effected insurance cost?
+- How region effected medical cost?
+- How the cost on the data distributed?
+
+Model Building:
+- Linear Regression Model
+
+## TABLE OF CONTENT
+- THE DATASET
+- EXPLORATORY DATA ANALYSIS (EDA)
+- MODEL BUILDING
+
+```{r}
+# library
+library(psych)
+library(ggplot2)
+library(cowplot)
+library(corrplot)
+library('viridis')
+```
+
+# THE DATASET
+Dataset sourced from book 'Machine Learning with R' by Brett Lantz which uploaded to kaggle by Miri Choi: https://www.kaggle.com/mirichoi0218/insurance . It contain properties of personal medical cost by insurance customer. All the dataset was public domain.
+
+The dataset contain 7 column, consist of 6 features and 1 target column (charges)
+
+```{r}
+# load data
+df <- read.csv("dataset/insurance.csv")
+head(df)
+```
+```{r}
+str(df)
+```
+features in dataset:
+- age       : age of primary beneficiary
+- sex       : insurance contractor's gender
+- bmi       : insurance contractor's bmi (body mass index)
+- children  : number of children covered by health insurance (dependents)
+- smoker    : whether the insurance contractor is smoking or not
+- region    : residential area in US
+- charges   : medical cost billed by health insurance
+
+
+# EXPLORATORY DATA ANALYSIS (EDA)
+
+```{r}
+summary(df)
+```
+sex, smoker, and region are categorical features.
+age, bmi, children, and charges are numerical features
+
+```{r}
+lapply(df,function(x) {length(which(is.na(x)))})
+```
+no null data found.
+
+## Analysis on categorical features
+categorical feature consist of sex, smoker, and region.
+
+### analysis on sex
+```{r}
+# count plot
+# get freq/count
+freq_table <- table(df$sex)
+fr <- as.data.frame.table(freq_table)
+
+# plot freq
+g <- ggplot(fr, aes(x=Var1, y=Freq)) + 
+  geom_bar(stat="identity", fill="tomato2") + 
+  geom_text(aes(label=Freq, vjust=-0.2), alpha=0.7) + 
+  ggtitle("sex Distribution", subtitle = "frequency/count of gender type") + 
+  labs(x="sex", y="count")
+
+# scatter plot
+gg <- ggplot(df, aes(x=sex, y=charges)) + 
+  geom_jitter(aes(color=sex), alpha=0.7) + 
+  ggtitle("sex vs charges")
+
+p <- plot_grid(g, gg)
+title <- ggdraw() + draw_label("Analysis on sex", fontface = 'bold')
+plot_grid(title, p, ncol = 1, rel_heights = c(0.1,1))
+```
+female vs male count/distribution balanced with slightly more male. There are no pattern on charges.
+
+
+### analysis on smoker
+```{r}
+# count plot
+# get freq/count
+freq_table <- table(df$smoker)
+fr <- as.data.frame.table(freq_table)
+
+# plot freq
+g <- ggplot(fr, aes(x="", y=Freq, fill = factor(Var1))) + 
+  geom_bar(width=1, stat="identity") + 
+  geom_text(aes(label = paste(round(Freq / sum(Freq) * 100, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  ggtitle("smoker Distribution", subtitle = "frequency/count of smoking customer") + 
+  labs(x="smoker", y="count") + 
+  coord_polar(theta = "y", start=1)  + 
+  theme(legend.position="bottom") + 
+  guides(fill=guide_legend(title="")) + 
+  scale_fill_manual(values = c("#58508d", "#bc5090", "#ff6361", "#ffa600"))
+
+# scatter plot
+gg <- ggplot(df, aes(x=smoker, y=charges)) + 
+  geom_jitter(color="lightcoral", alpha=0.7) + 
+  ggtitle("smoker vs charges") + 
+  theme(legend.position="None")
+
+p <- plot_grid(g, gg)
+title <- ggdraw() + draw_label("Analysis on smoker", fontface = 'bold')
+plot_grid(title, p, ncol = 1, rel_heights = c(0.1,1))
+```
+there are less smoker. Customer who smoke show higher charges than those who don't.
+
+### analysis on region
+```{r}
+# count plot
+# get freq/count
+freq_table <- table(df$region)
+fr <- as.data.frame.table(freq_table)
+
+# plot freq
+g <- ggplot(fr, aes(x="", y=Freq, fill = factor(Var1))) + 
+  geom_bar(width=1, stat="identity") + 
+  geom_text(aes(label = paste(round(Freq / sum(Freq) * 100, 1), "%")),
+            position = position_stack(vjust = 0.5)) +
+  ggtitle("region Distribution", subtitle = "region of customer (US)") + 
+  labs(x="region", y="count") +
+  coord_polar(theta = "y", start=1)  + 
+  theme(legend.position="bottom") + 
+  guides(fill=guide_legend(title="")) + 
+  scale_fill_manual(values = c("#58508d", "#bc5090", "#ff6361", "#ffa600"))
+
+# scatter plot
+gg <- ggplot(df, aes(x=region, y=charges)) + 
+  geom_jitter(color="DarkOliveGreen", alpha=0.7) + 
+  ggtitle("region vs charges") +
+  theme(axis.text.x = element_text(angle=90), legend.position = "None") 
+
+p <- plot_grid(g, gg)
+title <- ggdraw() + draw_label("Analysis on region", fontface = 'bold')
+plot_grid(title, p, ncol = 1, rel_heights = c(0.1,1))
+```
+there are 4 region, with 'southeast' has slightly more count than the other 3 that was pretty balanced to each other. There are no pattern on charges.
+
+
+## Distribution analysis on numerical features.
+numerical features consist of age, bmi, children, and charges.
+
+### distribution on age
+```{r}
+g <- ggplot(df, aes(age)) + 
+  scale_fill_brewer(palette = "Spectral") + 
+  geom_histogram(fill="thistle", binwidth = 1, col="black", size=.7) +
+  ggtitle("age Distribution", subtitle = "distribution of age vs count")
+
+gg <- ggplot(df, aes(x=age, y=charges)) + 
+  geom_point(colour="RosyBrown", alpha=0.3) + 
+  # geom_jitter(aes(color="re"), alpha=0.3) + 
+  ggtitle("age vs charges") + 
+  theme(legend.position="None")
+
+p <- plot_grid(g, gg)
+title <- ggdraw() + draw_label("Analysis on age", fontface = 'bold')
+plot_grid(title, p, ncol = 1, rel_heights = c(0.1,1))
+```
+ages have balanced distribution about 25-ish on age 20-64 with were more count on age 18 and 19. Age seems correspond linearly to charges. however, we can observe 3 cluster of charges, 0-20000, 20000ish, and 40000ish. 
+
+### distribution on bmi
+```{r}
+g <- ggplot(df, aes(bmi)) + 
+  geom_density(fill="#00798c", color="black", alpha=0.7) + 
+  ggtitle("bmi Distribution", subtitle = "distribution of bmi vs count")
+
+gg <- ggplot(df, aes(x=bmi, y=charges)) + 
+  # geom_point(aes(col=bmi))
+  geom_jitter(colour="#2e4057", alpha=0.3) + 
+  ggtitle("bmi vs charges") + 
+  theme(legend.position="None")
+
+p <- plot_grid(g, gg)
+title <- ggdraw() + draw_label("Analysis on bmi", fontface = 'bold')
+plot_grid(title, p, ncol = 1, rel_heights = c(0.1,1))
+```
+
+bmi distributed normally with average of 30.66. There are slightly increase of charges as the bmi increase.
+
+### distribution on children count
+```{r}
+g <- ggplot(df, aes(children)) + 
+  scale_fill_brewer(palette = "Spectral") + 
+  geom_histogram(fill="YellowGreen", binwidth = 1, col="black", size=.7) +
+  ggtitle("children Distribution", subtitle = "distribution of number of children(dependents) covered")
+
+gg <- ggplot(df, aes(x=children, y=charges)) + 
+  # geom_point(aes(col=bmi))
+  geom_jitter(colour = "lightseagreen", alpha=0.3) + 
+  ggtitle("children vs charges") + 
+  theme(legend.position="None")
+
+p <- plot_grid(g, gg)
+title <- ggdraw() + draw_label("Analysis on children", fontface = 'bold')
+plot_grid(title, p, ncol = 1, rel_heights = c(0.1,1))
+```
+most customer has no children, the more children count the less the counts. There are no pattern shown on charges.
+
+
+## analysis on other features:
+
+### Q: how number of children(dependents) correspond to customer's age
+```{r}
+gg <- ggplot(df, aes(x=children, y=age)) + 
+  geom_jitter(aes(colour = factor(children)), alpha=0.5) + 
+  ggtitle("children vs age") + 
+  theme(legend.position="None")
+
+gg
+```
+There's no pattern of number of children and age
+
+### age vs charges vs smoker
+```{r}
+gg <- ggplot(df, aes(x=age, y=charges)) + 
+  geom_jitter(aes(colour = factor(smoker)), alpha=0.3) + 
+  ggtitle("age vs charges vs smoker")
+
+gg
+```
+there are no pattern of smoker and age.
+
+### bmi vs age
+```{r}
+gg <- ggplot(df, aes(x=age, y=bmi)) + 
+  geom_jitter(aes(colour = factor(smoker)), alpha=0.3) + 
+  ggtitle("bmi vs age vs smoker")
+
+gg
+```
+there are no pattern on bmi vs age vs smoker.
+
+## encoding 
+```{r}
+encode <- function(x, order = unique(x)){
+  x <- as.numeric(factor(x, levels = order, exclude = NULL))
+  x
+}
+
+encoded_df <- df
+encoded_df[["sex"]] <- encode(df[["sex"]])
+encoded_df[["smoker"]] <- encode(df[["smoker"]])
+encoded_df[["region"]] <- encode(df[["region"]])
+head(encoded_df)
+```
+```{r}
+str(encoded_df)
+```
+## correlation matrix
+```{r}
+corr <- cor(encoded_df)
+g <- corrplot(corr, type="lower", tl.col = "black") 
+```
+```{r}
+gg <- heatmap(x=corr, col = magma(10), symm=T)
+```
+as we expected, smoker has higher correlation to charges then other, there are also slight correlation to age and bmi.
+
+
+# MODEL BUILDING
+
+## TRAIN-TEST SPLIT
+spilt dataset to train and test with ratio 7:3
+
+```{r}
+n_train <- round(0.7 * nrow(encoded_df))
+train_idx <- sample(1:nrow(encoded_df), n_train)
+
+train_df <- encoded_df[train_idx, ]
+test_df <- encoded_df[-train_idx, ]
+
+```
+
+## LINEAR REGRESSION
+```{r}
+lr <- lm(charges ~ age + sex + bmi + children + smoker + region, data=train_df)
+print(lr)
+```
+```{r}
+# pred
+test_df$pred <- predict(lr, newdata = test_df)
+```
+
+
+### plot
+```{r}
+gg <- ggplot(test_df, aes(x=pred, y=charges)) + 
+  geom_point(color = "lightsalmon", alpha=0.7) + 
+  geom_abline(color = "darkslategray", size=1) + 
+  ggtitle("prediction vs real charges (Linear Regression")
+
+gg
+```
+
+### model demonstration with dummy data
+```{r}
+dum <- data.frame(age = 27,
+                  sex = 2, 
+                  bmi = 30.1,
+                  children = 0,
+                  smoker = 1, 
+                  region = 3)
+
+print(paste0("Charges Prediction for dum: ", round(predict(lr, dum), 2)))
+
+```
+
